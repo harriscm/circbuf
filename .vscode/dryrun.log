@@ -1,0 +1,10 @@
+make --dry-run --keep-going --print-directory
+make: Entering directory `/Users/chadharris/Documents/Code/circbuf'
+gcc -c -fprofile-arcs -ftest-coverage -g circbuf.c
+ 
+g++ -c test_circbuf.cpp --std=c++11
+g++ -o test_circbuf.exe circbuf.o test_circbuf.o -lcppunit --std=c++11 -fprofile-arcs
+./test_circbuf.exe
+gcov circbuf
+make: Leaving directory `/Users/chadharris/Documents/Code/circbuf'
+ 

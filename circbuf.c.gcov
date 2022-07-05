@@ -1,0 +1,222 @@
+        -:    0:Source:circbuf.c
+        -:    0:Graph:circbuf.gcno
+        -:    0:Data:circbuf.gcda
+        -:    0:Runs:11
+        -:    0:Programs:1
+        -:    1:#include "circbuf.h"
+        -:    2:
+        -:    3:#include <stdio.h>
+        -:    4:
+      105:    5:static unsigned advance_head_tail_value(unsigned value, unsigned max)
+        -:    6:{
+      105:    7:    return (value +1)%max;
+        -:    8:}
+        -:    9:
+      105:   10:static void advance_head(circbuf_t *self)
+        -:   11:{
+      105:   12:    if(self->isFull)
+        -:   13:    {
+    #####:   14:        self->tail = advance_head_tail_value(self->tail, self->max);
+    #####:   15:    }
+        -:   16:
+      105:   17:    self->head = advance_head_tail_value(self->head, self->max);
+      105:   18:    self->isFull = (self->head == self->tail);
+      105:   19:}
+        -:   20:
+      105:   21:static char put_single_element(circbuf_t *self, unsigned char data, char try)
+        -:   22:{
+      105:   23:    char putValue = 0;
+      105:   24:    if(!try || !self->isFull)
+        -:   25:    {
+      105:   26:        putValue = 1;
+      105:   27:        self->buffer[self->head] = data;
+      105:   28:        advance_head(self);
+      105:   29:    }
+        -:   30:
+      105:   31:    return putValue;
+        -:   32:}
+        -:   33:
+       29:   34:static int reset(circbuf_t *self)
+        -:   35:{
+       29:   36:    int err = !self;
+       29:   37:    if(!err)
+        -:   38:    {
+       29:   39:        self->head = 0;
+       29:   40:        self->tail = 0;
+       29:   41:        self->isFull = 0;
+       29:   42:    }
+       29:   43:    return err;
+        -:   44:}
+        -:   45:
+    #####:   46:static int size(circbuf_t *self, unsigned *size)
+        -:   47:{
+    #####:   48:    int err = !self && !size;
+        -:   49:
+    #####:   50:    if(!err)
+        -:   51:    {
+    #####:   52:        *size = self->max;
+    #####:   53:        if(!self->isFull)
+        -:   54:        {
+    #####:   55:            if(self->head >= self->tail)
+        -:   56:            {
+    #####:   57:                *size = (self->head - self->tail);
+    #####:   58:            }
+        -:   59:            else
+        -:   60:            {
+    #####:   61:                *size = (self->max + self->head);
+        -:   62:            }
+    #####:   63:        }
+    #####:   64:    }
+    #####:   65:    return err;
+        -:   66:}
+        -:   67:
+    #####:   68:static int capacity(circbuf_t *self, unsigned *capacity)
+        -:   69:{
+    #####:   70:    int err = !self || !capacity;
+        -:   71:
+    #####:   72:    if(!err)
+        -:   73:    {
+    #####:   74:        *capacity = self->max; 
+    #####:   75:    }
+    #####:   76:    return err;
+        -:   77:}
+        -:   78:
+       26:   79:static int put(circbuf_t *self, const unsigned char *data, unsigned size)
+        -:   80:{
+       26:   81:    int err = !self || !data || !size;
+       26:   82:    int i = 0;
+        -:   83:    
+       26:   84:    if(!err)
+        -:   85:    {
+      111:   86:        for(i = 0; i < size; i++)
+        -:   87:        {
+      105:   88:            put_single_element(self, data[i], 0);
+      105:   89:        }
+        6:   90:    }
+       26:   91:    return err;
+        -:   92:}
+        -:   93:
+    #####:   94:static int try_put(circbuf_t *self, const unsigned char *data, unsigned size)
+        -:   95:{
+    #####:   96:    int err = !self || !data || !size;
+        -:   97:
+    #####:   98:    if(!err)
+        -:   99:    {
+        -:  100:        unsigned available;
+    #####:  101:        self->size(self, &available);
+    #####:  102:        if(available >= size)
+        -:  103:        {
+    #####:  104:            err = self->put(self, data, size);
+    #####:  105:        }
+        -:  106:        else
+        -:  107:        {
+    #####:  108:            err = -1;
+        -:  109:        }
+    #####:  110:    }
+        -:  111:
+    #####:  112:    return err;
+        -:  113:}
+        -:  114:
+    #####:  115:int get(circbuf_t *self, unsigned char *data, unsigned size)
+        -:  116:{
+    #####:  117:    int err = !self || !data || !size;
+        -:  118:
+    #####:  119:    if(!err)
+        -:  120:    {
+        -:  121:        char empty;
+    #####:  122:        self->empty(self, &empty);
+    #####:  123:        if(!empty)
+        -:  124:        {
+    #####:  125:            unsigned i = 0;
+    #####:  126:            for (i = 0; i < size; i++)
+        -:  127:            {
+    #####:  128:                data[i] = self->buffer[self->tail];
+    #####:  129:                self->tail = advance_head_tail_value(self->tail, self->max);
+    #####:  130:                self->full = 0;
+    #####:  131:            }
+    #####:  132:        }
+        -:  133:        else
+        -:  134:        {
+    #####:  135:            err = -1;
+        -:  136:        }
+    #####:  137:    }
+    #####:  138:    return err;
+        -:  139:
+        -:  140:}
+        -:  141:
+    #####:  142:static int peek(circbuf_t *self, unsigned char *data, unsigned size)
+        -:  143:{
+    #####:  144:    int err = !self || !data || !size;
+        -:  145:
+    #####:  146:    if(!err)
+        -:  147:    {
+        -:  148:        unsigned available;
+        -:  149:        char empty;
+    #####:  150:        self->size(self, &available);
+    #####:  151:        self->empty(self, &empty);
+    #####:  152:        if(empty || size > available)
+        -:  153:        {
+    #####:  154:            err = -1;
+    #####:  155:        }
+        -:  156:        else
+        -:  157:        {
+    #####:  158:            unsigned pos = self->tail;
+    #####:  159:            unsigned i = 0;
+    #####:  160:            for(i = 0; i < size; i++)
+        -:  161:            {
+    #####:  162:                data[i] = self->buffer[pos];
+    #####:  163:                pos = advance_head_tail_value(pos, self->max);
+    #####:  164:            }
+        -:  165:        }
+    #####:  166:    }
+        -:  167:
+    #####:  168:    return err;
+        -:  169:}
+        -:  170:
+    #####:  171:int empty(circbuf_t *self, char *empty)
+        -:  172:{
+    #####:  173:    int err = !self || !empty;
+        -:  174:
+    #####:  175:    if(!err)
+        -:  176:    {
+    #####:  177:        *empty = self->isFull && (self->head == self->tail);
+    #####:  178:    }
+        -:  179:
+    #####:  180:    return err;
+        -:  181:}
+        -:  182:
+    #####:  183:int full(circbuf_t *self, char *full)
+        -:  184:{
+    #####:  185:    int err = !self || !full;
+        -:  186:    
+    #####:  187:    if(!err)
+        -:  188:    {
+    #####:  189:        *full = self->isFull;
+    #####:  190:    }
+        -:  191:
+    #####:  192:    return err;
+        -:  193:}
+        -:  194:
+       62:  195:int circbuf_init(circbuf_t *obj, unsigned char *buffer, unsigned max)
+        -:  196:{
+       62:  197:    int err = !obj || !buffer || !max;
+        -:  198:
+       62:  199:    if(!err)
+        -:  200:    {
+       29:  201:        obj->buffer = buffer;
+       29:  202:        obj->max = max;
+       29:  203:        reset(obj);
+        -:  204:
+       29:  205:        obj->reset = reset;
+       29:  206:        obj->size = size;
+       29:  207:        obj->capacity = capacity;
+       29:  208:        obj->put = put;
+       29:  209:        obj->try_put = try_put;
+       29:  210:        obj->get = get;
+       29:  211:        obj->peek = peek;
+       29:  212:        obj->empty = empty;
+       29:  213:        obj->full = full;
+       29:  214:    }
+        -:  215:
+       62:  216:    return err;
+        -:  217:}
